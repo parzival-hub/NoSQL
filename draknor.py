@@ -29,7 +29,7 @@ def scan_bool_payloads(url, form_data,scan_param_name, default_response):
         #is request error
         if response.status_code != default_response.status_code:
             print(f"\t[?] Unexpected Status Code: {response.status_code} {payload}")       
-            error_payloads.append([response.status_code, response, [payload, extraction_payload]])
+            error_payloads.append(payload)
         # is request success
         elif len(response.text) != len(default_response.text):            
             print(f"\t[+] SUCCESS:{payload}")       
@@ -96,7 +96,7 @@ def main():
         
     print("Error inflicting payloads:")
     for p in error_payloads:
-        print(f"\t {p[2]}")
+        print(f"\t {p}")
         
 
     # verify exctration point    
