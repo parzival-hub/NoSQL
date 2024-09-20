@@ -98,7 +98,7 @@ def main():
             break
     
     brute_extract_data(url, form_data,scan_param_name, default_response, extraction_point, "username", extraction_attribute_length)
-    send_extraction_request(url, form_data, extraction_point, extraction_payload, insertion_param_name, default_response)
+    #send_extraction_request(url, form_data, extraction_point, extraction_payload, insertion_param_name, default_response)
     #if args.arrays:  
     #    scan_array_payloads()
 
