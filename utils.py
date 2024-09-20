@@ -171,7 +171,7 @@ def brute_extract_data(url, form_data,scan_param_name, default_response, extract
 
         if not new_found:
             raise Exception(f"No new char could be found for: {extraction_attribute_name} at index {i} (max length: {extraction_attribute_length})")                                 
-    progress_bar(i, extraction_attribute_length)
+    progress_bar(extraction_attribute_length, extraction_attribute_length)
     print()
     return result
 
