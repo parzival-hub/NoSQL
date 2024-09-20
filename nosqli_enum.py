@@ -65,7 +65,7 @@ def main():
     print("--- Starting Draknor NoSQL Injection Scanner ---")
     # extract post data from html form
     form_target=args.target
-    if not form_target.startswith("http://") or form_target.startswith("http://"):
+    if not form_target.startswith("http") :
         form_target = "http://" + form_target
     form_data = extract_form_data(form_target,scan_param_name)
 
