@@ -85,12 +85,66 @@ def extract_form_data(url, scan_param_name):
     form_data.parameters = form_data.parameters.rstrip("&")
     return form_data
 
+def get_baseline_response(form_data, scan_param_name):
+    # get default response for random payload
+    default_response = get_random_payload_response(form_data, scan_param_name)
+    # check if page is dynamic
+    default_response_2 = get_random_payload_response(form_data, scan_param_name)
+
+    if len(default_response.text) == len(default_response_2.text):
+        print("[+] Form target page is not reflective")
+        return default_response
+    else:
+        print("[-] Page content is reflective")
+        print("[-] You need to specify a fail or success string.")
+        exit()
+
+def check_successfull_http_schema(url):
+    protocols = ["https://", "http://"]
+    
+    for protocol in protocols:
+        full_url = protocol + url
+        
+        # Versuche zuerst mit einer HEAD-Anfrage
+        try:            
+            response = requests.head(full_url, timeout=5)
+            if response:
+                return protocol
+        except requests.RequestException:
+            pass
+        
+    # Wenn beide HEAD-Anfragen fehlschlagen, versuche GET-Anfragen
+    for protocol in protocols:
+        full_url = protocol + url
+        
+        try:            
+            # Fallback zu einer GET-Anfrage, falls beide HEAD fehlschlagen
+            response = requests.get(full_url, timeout=5)            
+            if response:
+                return protocol
+        except requests.RequestException:
+            pass
+    
+    # Weder HTTPS noch HTTP war erfolgreich
+    return None
+
 def check_and_correct_url_schema(url):
     if not url:
         return None
-    if not url.startswith("http") :
-        print("[!] No URL schema supplied. Automatically added http as URL schema.")
-        return "http://" + url
+    
+    # check if HTTP schema exists
+    if url.startswith("http"):
+       return url
+    else:
+        # find schema
+        print("[!] No URL schema supplied. Automatically checking successfull HTTP schema...")
+        schema = check_successfull_http_schema(url)
+        if schema:
+            print(f"[+] Automatically found HTTP schema: {schema}")
+            return schema + url
+        else:
+            raise Exception(f"Target URL {url} is not responsive for HEAD and GET requests.")
+        
 
 def generate_random_string(length):
     # Define the character set (uppercase, lowercase, digits)
@@ -106,6 +160,14 @@ def get_random_payload_response(form_data, scan_param_name):
         raise Exception(f"Default Response failed: {default_response.status_code}, {default_response.text}")
     return default_response
 
+
+def print_results(found_attributes, results):
+    print("Extracted attributes:")
+    for attr, length in found_attributes:
+        print(f"[+]  {attr}:{length}")
+    print("Extracted data:")
+    for r in results:
+        print(f"[+] {r[0]}:{r[1]}")
 
 def send_extraction_request(form_data, extraction_point, extraction_payload, insertion_param_name, default_response, debug=False):
     # create payload by replacing injection point 
