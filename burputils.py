@@ -141,16 +141,21 @@ def create_attack_target_from_burp_data(file_path):
     
     # Assume the parameters are the body of the request (this can be customized)
     parameters = extract_body_from_request(decoded_request_data)
-
+        
     if request_body_type == PostRequestBodyType.JSON:
         try:
             # Try to parse the parameters as JSON
             parameters = json.loads(parameters)
+            if parameters:
+                scan_p_name = next(iter(parameters.keys()))
         except json.JSONDecodeError:            
             raise Exception("Encountered JSON request type but parameters are not in valid JSON format")
+    elif request_body_type == PostRequestBodyType.FORM_URLENCODED:
+        if parameters:
+            scan_p_name = parameters.split("=")[0]
+    else:
+        raise Exception(f"The request_body_type '{request_body_type}' can not be handled in this version.")    
     
     # Create and return the AttackTarget object
-    attack_target = AttackTarget(http_verb=http_verb, http_schema=http_schema,host=host,port=port, path=path,  parameters=parameters, request_body_type=request_body_type, headers=headers, cookies=cookies)
+    attack_target = AttackTarget(http_verb=http_verb, http_schema=http_schema,host=host,port=port, path=path,  parameters=parameters, request_body_type=request_body_type, headers=headers, cookies=cookies, scan_param_name=scan_p_name)
     return attack_target
-
-

