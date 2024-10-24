@@ -6,14 +6,30 @@ class PostRequestBodyType(Enum):
     MULTIPART_FORM_DATA = "multipart/form-data"
     XML = "application/xml"
     PLAIN_TEXT = "text/plain"
+    UNKNOWN = "unknown"  # For cases where we can't determine the content type
 
 class AttackTarget:
-    def __init__(self, url="", action="", method="", parameters=""):
-        self.action = action
-        self.method = method
+    def __init__(self,http_verb="", http_schema="",host="",port="", path="",  parameters="", request_body_type=PostRequestBodyType.UNKNOWN, headers={}, cookies={}):
+        self.http_verb = http_verb
+        self.http_schema = http_schema
+        self.host = host
+        self.port = port
+        self.path = path
         self.parameters = parameters    
-        self.url = url  
-          
+        self.request_body_type = request_body_type  # New field to store the request body type
+        self.baseline_response = ""
+        self.cookies= cookies
+        self.headers = headers
 
     def __str__(self):
-        return f"\n\tUrl: {self.url},\n\tAction: {self.action}, \n\tMethod: {self.method}, \n\tParameter Data: {self.parameters}"
+        return (            
+            f"Target: {self.http_verb} {self.get_target_url()}\n"            
+            f"Parameters: {self.parameters}\n"
+            f"Request Body Type: {self.request_body_type.value}\n"
+        )
+
+    def set_baseline_response(self, baseline_response):
+        self.baseline_response = baseline_response
+
+    def get_target_url(self):
+        return self.http_schema+"://"+self.host+":"+self.port+self.path
