@@ -199,7 +199,11 @@ def send_extraction_request(attack_target, extraction_point, extraction_payload,
 
 def send_post_request(attack_target, payload, debug = False):
     r_body_type = attack_target.request_body_type
-    
+    if debug:
+        proxies = {
+        "http": "http://127.0.0.1:8080",
+        "https": "http://127.0.0.1:8080",  # HTTPS Requests ebenfalls durch Burp leiten
+        }
     if r_body_type == PostRequestBodyType.JSON:
         r_data = attack_target.parameters.copy()
         r_data[attack_target.scan_param_name] = payload
@@ -211,7 +215,7 @@ def send_post_request(attack_target, payload, debug = False):
             attack_target.get_target_url(),
             headers=attack_target.headers,
             cookies=attack_target.cookies,
-            json=r_data,
+            json=r_data,proxies=proxies
         )    
     
     elif r_body_type == PostRequestBodyType.FORM_URLENCODED:
@@ -223,7 +227,7 @@ def send_post_request(attack_target, payload, debug = False):
             attack_target.get_target_url(),
             headers=attack_target.headers,
             cookies=attack_target.cookies,
-            data=r_data,
+            data=r_data,proxies=proxies
         )    
     else:
         raise Exception(f"The request_body_type '{r_body_type}' can not be handled in this version.")
