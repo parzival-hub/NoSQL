@@ -35,7 +35,7 @@ def SSJI_brute_attribute_names(attack_target, extraction_point):
             attr_length = SSJI_get_extraction_parameter_length(attack_target,attack_target.scan_param_name, attack_target.baseline_response, extraction_point, a)
             if attr_length:
                 found_attributes.append([a,attr_length])                
-        progress_bar(counter, len(attributes_list-1))
+        progress_bar(counter, len(attributes_list)-1)
     progress_bar(1,1)    
     return found_attributes
 
