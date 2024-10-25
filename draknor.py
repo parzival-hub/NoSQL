@@ -154,7 +154,9 @@ def check_SSJI(success_payloads, attack_target):
   
     # enumerate attribute names
     found_attributes = SSJI_brute_attribute_names(attack_target, extraction_point)
-
+    for a,attr_length in found_attributes:
+        print(f"\t[+] Found attribute: {a} with length {attr_length}")
+    
     # extract data
     results = []
     for attr, length in found_attributes:
