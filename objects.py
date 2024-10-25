@@ -13,7 +13,7 @@ class AttackTarget:
         self.http_verb = http_verb
         self.http_schema = http_schema
         self.host = host
-        self.port = port
+        self.port = str(port)
         self.path = path
         self.parameters = parameters    
         self.request_body_type = request_body_type  # New field to store the request body type

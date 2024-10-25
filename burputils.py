@@ -110,7 +110,7 @@ def extract_body_from_request(request_data):
     return ""
 
 def create_attack_target_from_burp_data(file_path):
-    print(f"[*] Reading Burp File: {file_path}")
+    print(f"Reading Burp File: {file_path}")
     
     try:
         parsed_data = parse_burp_request(file_path)

