@@ -22,6 +22,9 @@ class AttackTarget:
         self.headers = headers
         self.scan_param_name = scan_param_name
         self.proxies = proxies
+        
+        self.headers["Content-Type"] = request_body_type.value
+        
 
     def __str__(self):
         return (            
