@@ -5,11 +5,6 @@ from utils import *
 import re
 from burputils import *
 
-# BUG JSON wird nicht richtig versendet
-# POST /index.php HTTP/1.1
-# ...
-# trackingNum=%24regex
-
 #TODO
 # implement custom fail string implementation
 # implement array payload handling
@@ -193,14 +188,6 @@ def main():
     
     else:        
         print("[-] No successfull payloads found")
-
-
-t = create_attack_target_from_burp_data("draknor_input_json_succ.req")
-print(t)
-print(t.parameters["trackingNum"])
-send_post_request(t,t.parameters["trackingNum"], debug=True)
-exit()
-
 
 try:
     main()
