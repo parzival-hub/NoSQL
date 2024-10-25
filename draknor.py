@@ -19,7 +19,7 @@ def scan_array_payloads():
         #      r_data = r_data.replace(f"§{index}§", payload)
     pass
 
-def scan_bool_payloads(attack_target, baseline_response,debug=False): 
+def scan_bool_payloads(attack_target, baseline_response,debug=False, proxies=None): 
     if attack_target.request_body_type == PostRequestBodyType.JSON:
         attack_payloads = bool_json_payloads
     elif attack_target.request_body_type == PostRequestBodyType.FORM_URLENCODED:
@@ -33,7 +33,7 @@ def scan_bool_payloads(attack_target, baseline_response,debug=False):
 
     for payload, extraction_payload in attack_payloads:        
         #send request
-        response = send_post_request(attack_target, payload,debug=debug)
+        response = send_post_request(attack_target, payload,debug=debug, proxies=proxies)
 
         #is request error
         if response.status_code != baseline_response.status_code:
@@ -75,12 +75,13 @@ def create_form_data_obj(direct_url, form_extract_target, burp_file_path, scan_p
 def init():
     parser = argparse.ArgumentParser(description="Simple NoSQL Enumeration Tool")
     parser.add_argument('-u', '--url', help="Scan Url to scan")
-    parser.add_argument('-b', '--burp', help="Burp request file to extract target from")
+    parser.add_argument('-b', '--burp-file', help="Burp request file to extract target from")
     parser.add_argument('-e', '--extract', help="Scan Target to extract form from")
     parser.add_argument('-p', '--parameter', help="Parameter to test")
     parser.add_argument('-f', '--fail_string', help="Response string for failed requests")
     parser.add_argument('-d', '--data', help="Post Data")
     parser.add_argument('-v','--verbose', action='store_true', help="Show verbose debug")
+    parser.add_argument('--burp-proxy', action='store_true', help="Show verbose debug")
     #parser.add_argument('--arrays', action='store_true', help="Activate array payloads")
     #parser.add_argument('--time', action='store_true', help="Activate time payload")
 
@@ -91,12 +92,11 @@ def init():
     scan_param_name=args.parameter
     direct_url= check_and_correct_url_schema(args.url)
     form_extract_target=check_and_correct_url_schema(args.extract)
-    burp_file_path=args.burp
+    burp_file_path=args.burp_file
     post_data=args.data
     verbose=args.verbose
     fail_message=args.fail_string
     
-
     if not form_extract_target and not direct_url and not burp_file_path:
         parser.print_help()
         raise Exception("[-] Target url(-u) or target(-t) has to be set")                
@@ -131,13 +131,21 @@ def init():
             scan_param_name = match.group(2)  
         else:
             raise Exception("Could not extract target parameter from parameter data. Format is name=§value§")
+    
+    # set proxy and scan_param_name in burp
     attack_target.scan_param_name = scan_param_name
+    if args.burp_proxy:        
+        attack_target.proxies = {
+            "http": "http://127.0.0.1:8080",
+            "https": "http://127.0.0.1:8080"
+        }    
+    
     return attack_target,verbose
 
 
-def check_SSJI(success_payloads, attack_target):
+def check_SSJI(success_payloads, attack_target, proxies=None):
     # verify extraction point    
-    extraction_point = SSJI_verify_extraction_point(success_payloads, attack_target)
+    extraction_point = SSJI_verify_extraction_point(success_payloads, attack_target, proxies=proxies)
     if not extraction_point:
         print("[-] No valid SSJI extraction point found")  
         return      
@@ -145,12 +153,12 @@ def check_SSJI(success_payloads, attack_target):
         print(f"[+] Valid SSJI extraction point found: {extraction_point}")        
   
     # enumerate attribute names
-    found_attributes = SSJI_brute_attribute_names(attack_target, extraction_point)
+    found_attributes = SSJI_brute_attribute_names(attack_target, extraction_point, proxies=proxies)
 
     # extract data
     results = []
     for attr, length in found_attributes:
-        res = SSJI_brute_extract_data(attack_target, extraction_point, attr, length)
+        res = SSJI_brute_extract_data(attack_target, extraction_point, attr, length, proxies=proxies)
         if res:
             print(f"[data] {attr}:{res}")   
             results.append([attr, res])

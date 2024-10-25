@@ -125,6 +125,7 @@ def send_post_request(attack_target, payload, debug = False):
             headers=attack_target.headers,
             cookies=attack_target.cookies,
             json=r_data,
+            proxies=attack_target.proxies
         )    
     
     elif r_body_type == PostRequestBodyType.FORM_URLENCODED:
@@ -136,6 +137,7 @@ def send_post_request(attack_target, payload, debug = False):
             headers=attack_target.headers,
             cookies=attack_target.cookies,
             data=r_data,
+            proxies=attack_target.proxies
         )    
     else:
         raise Exception(f"The request_body_type '{r_body_type}' can not be handled in this version.")

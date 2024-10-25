@@ -9,7 +9,7 @@ class PostRequestBodyType(Enum):
     UNKNOWN = "unknown"  # For cases where we can't determine the content type
 
 class AttackTarget:
-    def __init__(self,http_verb="", http_schema="",host="",port="", path="",  parameters="", request_body_type=PostRequestBodyType.UNKNOWN, scan_param_name="",headers={}, cookies={}):
+    def __init__(self,http_verb="", http_schema="",host="",port="", path="",  parameters="", request_body_type=PostRequestBodyType.UNKNOWN, scan_param_name="", proxies={}, headers={}, cookies={}):
         self.http_verb = http_verb
         self.http_schema = http_schema
         self.host = host
@@ -21,6 +21,7 @@ class AttackTarget:
         self.cookies= cookies
         self.headers = headers
         self.scan_param_name = scan_param_name
+        self.proxies = proxies
 
     def __str__(self):
         return (            
