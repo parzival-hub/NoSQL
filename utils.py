@@ -203,20 +203,33 @@ def send_post_request(attack_target, payload, debug = False):
     if r_body_type == PostRequestBodyType.JSON:
         r_data = attack_target.parameters.copy()
         r_data[attack_target.scan_param_name] = payload
+        
+        if debug:
+            print(attack_target.get_target_url(), r_data)
+            print(attack_target.headers)
+        r = requests.post(
+            attack_target.get_target_url(),
+            headers=attack_target.headers,
+            cookies=attack_target.cookies,
+            json=r_data,
+        )    
+    
     elif r_body_type == PostRequestBodyType.FORM_URLENCODED:
         r_data = attack_target.parameters.replace(f"§{attack_target.scan_param_name}§", quote(payload))
+        if debug:
+            print(attack_target.get_target_url(), r_data)
+            print(attack_target.headers)
+        r = requests.post(
+            attack_target.get_target_url(),
+            headers=attack_target.headers,
+            cookies=attack_target.cookies,
+            data=r_data,
+        )    
     else:
         raise Exception(f"The request_body_type '{r_body_type}' can not be handled in this version.")
     
-    if debug:
-        print(attack_target.get_target_url(), r_data)
-    r = requests.post(
-        attack_target.get_target_url(),
-        headers=attack_target.headers,
-        cookies=attack_target.cookies,
-        data=r_data,
-    )    
-    if debug:
+    
+    if r and debug:
         print(len(r.text), r.status_code, r.text)
     return r
 

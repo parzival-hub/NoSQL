@@ -5,13 +5,16 @@ from utils import *
 import re
 from burputils import *
 
-
+# BUG JSON wird nicht richtig versendet
+# POST /index.php HTTP/1.1
+# ...
+# trackingNum=%24regex
 
 #TODO
 # implement custom fail string implementation
 # implement array payload handling
 # implement time based payload handling
-                    
+
 
 def scan_array_payloads():
     #if payload.startswith("%5b"): # %5b = [
